@@ -24,7 +24,7 @@ import (
 var syliusToken string
 
 func fetchSyliusToken() {
-	link := "https://books.sfi.ru/api/oauth/v2/token"
+	link := "/api/oauth/v2/token"
 
 	syliusClientID, _ := os.LookupEnv("SYLIUS_CLIENT_ID")
 	syliusClientSecret, _ := os.LookupEnv("SYLIUS_CLIENT_SECRET")
@@ -67,7 +67,8 @@ func initApp() {
 }
 
 func syliusRequest(requestType string, url string, body io.Reader, contentType string) map[string]interface{} {
-	req, errRequest := http.NewRequest(requestType, url, body)
+	syliusHost, _ := os.LookupEnv("SYLIUS_HOST")
+	req, errRequest := http.NewRequest(requestType, syliusHost+url, body)
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("Authorization", "Bearer "+syliusToken)
 	client := &http.Client{}
@@ -94,7 +95,8 @@ func syliusRequest(requestType string, url string, body io.Reader, contentType s
 }
 
 func odinCRequest(requestType string, url string, body io.Reader) map[string]interface{} {
-	req, errRequest := http.NewRequest(requestType, url, body)
+	host, _ := os.LookupEnv("1C_HOST")
+	req, errRequest := http.NewRequest(requestType, host+url, body)
 	req.Header.Set("Content-Type", "application/json")
 	odinCLogin, _ := os.LookupEnv("1C_LOGIN")
 	odinCPassword, _ := os.LookupEnv("1C_PASSWORD")
@@ -128,7 +130,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 
 	// Delete existing product as we can't PUT yet
 	// @see: https://github.com/Sylius/Sylius/issues/10532
-	syliusRequest("DELETE", "https://books.sfi.ru/api/v1/products/"+slug, nil, "application/json")
+	syliusRequest("DELETE", "/api/v1/products/"+slug, nil, "application/json")
 
 	productData := map[string]interface{}{
 		"code":                      slug,
@@ -139,14 +141,14 @@ func importProduct(sourceProduct map[string]interface{}) {
 	}
 
 	fmt.Println("Get images")
-	imagesRaw := odinCRequest("GET", "http://biblio.sfi.ru:10000/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0%D0%9F%D1%80%D0%B8%D1%81%D0%BE%D0%B5%D0%B4%D0%B8%D0%BD%D0%B5%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D1%8B/?$format=json&%24filter=%D0%92%D0%BB%D0%B0%D0%B4%D0%B5%D0%BB%D0%B5%D1%86%D0%A4%D0%B0%D0%B9%D0%BB%D0%B0_Key%20eq%20guid%27"+sourceProductID+"%27", nil)
+	imagesRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0%D0%9F%D1%80%D0%B8%D1%81%D0%BE%D0%B5%D0%B4%D0%B8%D0%BD%D0%B5%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D1%8B/?$format=json&%24filter=%D0%92%D0%BB%D0%B0%D0%B4%D0%B5%D0%BB%D0%B5%D1%86%D0%A4%D0%B0%D0%B9%D0%BB%D0%B0_Key%20eq%20guid%27"+sourceProductID+"%27", nil)
 	images := imagesRaw["value"].([]interface{})
 	for i, imageRaw := range images {
 		index := strconv.Itoa(i)
 		imageRaw := imageRaw.(map[string]interface{})
 		imageID := imageRaw["Ref_Key"].(string)
 		fmt.Println("- Get image data")
-		imageDataRaw := odinCRequest("GET", "http://biblio.sfi.ru:10000/1cbooks/odata/standard.odata/InformationRegister_%D0%94%D0%B2%D0%BE%D0%B8%D1%87%D0%BD%D1%8B%D0%B5%D0%94%D0%B0%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2(%D0%A4%D0%B0%D0%B9%D0%BB='"+imageID+"',%20%D0%A4%D0%B0%D0%B9%D0%BB_Type='StandardODATA.Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0%D0%9F%D1%80%D0%B8%D1%81%D0%BE%D0%B5%D0%B4%D0%B8%D0%BD%D0%B5%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D1%8B')/?$format=json", nil)
+		imageDataRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/InformationRegister_%D0%94%D0%B2%D0%BE%D0%B8%D1%87%D0%BD%D1%8B%D0%B5%D0%94%D0%B0%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2(%D0%A4%D0%B0%D0%B9%D0%BB='"+imageID+"',%20%D0%A4%D0%B0%D0%B9%D0%BB_Type='StandardODATA.Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0%D0%9F%D1%80%D0%B8%D1%81%D0%BE%D0%B5%D0%B4%D0%B8%D0%BD%D0%B5%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D1%8B')/?$format=json", nil)
 		base64image := imageDataRaw["ДвоичныеДанныеФайла_Base64Data"].(string)
 		base64imageFixed := strings.ReplaceAll(base64image, "\r\n", "")
 
@@ -174,16 +176,16 @@ func importProduct(sourceProduct map[string]interface{}) {
 	}
 
 	// ДополнительныеРеквизиты
-	// http://biblio.sfi.ru:10000/1cbooks/odata/standard.odata/ChartOfCharacteristicTypes_%D0%94%D0%BE%D0%BF%D0%BE%D0%BB%D0%BD%D0%B8%D1%82%D0%B5%D0%BB%D1%8C%D0%BD%D1%8B%D0%B5%D0%A0%D0%B5%D0%BA%D0%B2%D0%B8%D0%B7%D0%B8%D1%82%D1%8B%D0%98%D0%A1%D0%B2%D0%B5%D0%B4%D0%B5%D0%BD%D0%B8%D1%8F/?$format=json
+	// /1cbooks/odata/standard.odata/ChartOfCharacteristicTypes_%D0%94%D0%BE%D0%BF%D0%BE%D0%BB%D0%BD%D0%B8%D1%82%D0%B5%D0%BB%D1%8C%D0%BD%D1%8B%D0%B5%D0%A0%D0%B5%D0%BA%D0%B2%D0%B8%D0%B7%D0%B8%D1%82%D1%8B%D0%98%D0%A1%D0%B2%D0%B5%D0%B4%D0%B5%D0%BD%D0%B8%D1%8F/?$format=json
 	// Parent_Key Группа списка
-	// http://biblio.sfi.ru:10000/1cbooks/odata/standard.odata/Catalog_%D0%A1%D0%B5%D0%B3%D0%BC%D0%B5%D0%BD%D1%82%D1%8B%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D1%8B/?$format=json
+	// /1cbooks/odata/standard.odata/Catalog_%D0%A1%D0%B5%D0%B3%D0%BC%D0%B5%D0%BD%D1%82%D1%8B%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D1%8B/?$format=json
 	// ВидНоменклатуры_Key
-	// http://biblio.sfi.ru:10000/1cbooks/odata/standard.odata/Catalog_%D0%92%D0%B8%D0%B4%D1%8B%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D1%8B/?$format=json
+	// /1cbooks/odata/standard.odata/Catalog_%D0%92%D0%B8%D0%B4%D1%8B%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D1%8B/?$format=json
 	// Производитель_Key
-	// http://biblio.sfi.ru:10000/1cbooks/odata/standard.odata/Catalog_%D0%9F%D1%80%D0%BE%D0%B8%D0%B7%D0%B2%D0%BE%D0%B4%D0%B8%D1%82%D0%B5%D0%BB%D0%B8/?$format=json
+	// /1cbooks/odata/standard.odata/Catalog_%D0%9F%D1%80%D0%BE%D0%B8%D0%B7%D0%B2%D0%BE%D0%B4%D0%B8%D1%82%D0%B5%D0%BB%D0%B8/?$format=json
 
 	body, contentType := makeMultipartBody(productData)
-	resp := syliusRequest("POST", "https://books.sfi.ru/api/v1/products/", body, contentType)
+	resp := syliusRequest("POST", "/api/v1/products/", body, contentType)
 	fmt.Println(resp)
 }
 
@@ -191,9 +193,9 @@ func main() {
 	fmt.Println("Syncing 1C and Sylius")
 	initApp()
 
-	// http://biblio.sfi.ru:10000/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?%24format=json&%24filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20ne%20%27%27%20and%20Description%20eq%20%27%D0%97%D0%B2%D1%83%D0%BA%D0%B8%20%D0%B4%D1%83%D1%88%D0%B8.%20%D0%9D.%D0%9D.%20%D0%9D%D0%B5%D0%BF%D0%BB%D1%8E%D0%B5%D0%B2%D0%B0%27
+	// /1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?%24format=json&%24filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20ne%20%27%27%20and%20Description%20eq%20%27%D0%97%D0%B2%D1%83%D0%BA%D0%B8%20%D0%B4%D1%83%D1%88%D0%B8.%20%D0%9D.%D0%9D.%20%D0%9D%D0%B5%D0%BF%D0%BB%D1%8E%D0%B5%D0%B2%D0%B0%27
 	fmt.Println("Get products from 1C")
-	productsRaw := odinCRequest("GET", "http://biblio.sfi.ru:10000/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json&$filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20ne%20%27%27", nil)
+	productsRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json&$filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20ne%20%27%27", nil)
 	products := productsRaw["value"].([]interface{})
 	for _, productRaw := range products {
 		defer func() {
@@ -207,12 +209,12 @@ func main() {
 
 	//
 	// Ref_Key
-	// http://biblio.sfi.ru:10000/1cbooks/odata/standard.odata/InformationRegister_ДвоичныеДанныеФайлов(Файл='a58b6122-d46f-11e8-9bf5-14dae924f847', Файл_Type='StandardODATA.Catalog_НоменклатураПрисоединенныеФайлы')/?$format=json
+	// /1cbooks/odata/standard.odata/InformationRegister_ДвоичныеДанныеФайлов(Файл='a58b6122-d46f-11e8-9bf5-14dae924f847', Файл_Type='StandardODATA.Catalog_НоменклатураПрисоединенныеФайлы')/?$format=json
 	// ДвоичныеДанныеФайла_Base64Data \r\n
 
-	// http://biblio.sfi.ru:10000/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json
-	// http://biblio.sfi.ru:10000/1cbooks/odata/standard.odata/Catalog_НоменклатураПрисоединенныеФайлы/?$format=json
-	// http://biblio.sfi.ru:10000/1cbooks/odata/standard.odata/InformationRegister_ДвоичныеДанныеФайлов(Файл='a58b6122-d46f-11e8-9bf5-14dae924f847', Файл_Type='StandardODATA.Catalog_НоменклатураПрисоединенныеФайлы')/?$format=json
+	// /1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json
+	// /1cbooks/odata/standard.odata/Catalog_НоменклатураПрисоединенныеФайлы/?$format=json
+	// /1cbooks/odata/standard.odata/InformationRegister_ДвоичныеДанныеФайлов(Файл='a58b6122-d46f-11e8-9bf5-14dae924f847', Файл_Type='StandardODATA.Catalog_НоменклатураПрисоединенныеФайлы')/?$format=json
 }
 
 func makeMultipartBody(values map[string]interface{}) (body io.Reader, contentType string) {
