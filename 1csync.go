@@ -17,6 +17,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/joho/godotenv"
@@ -24,6 +25,33 @@ import (
 )
 
 var _syliusToken string
+
+var _prices map[string]interface{}
+
+func syncPrices() {
+	url := "/1cbooks/odata/standard.odata/InformationRegister_%D0%A6%D0%B5%D0%BD%D1%8B%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D1%8B/?$format=json"
+
+	pricesR := odinCRequest("GET", url, nil)
+	for _, readersRaw := range pricesR["value"].([]interface{}) {
+		readers := readersRaw.(map[string]interface{})
+		for _, priceItemRaw := range readers["RecordSet"].([]interface{}) {
+			priceItem := priceItemRaw.(map[string]interface{})
+			productCode := priceItem["Номенклатура_Key"].(string)
+			if priceItem["ВидЦены_Key"].(string) == "a0965697-a587-11e6-8857-14dae924f847" {
+				if savedItemR, ok := _prices[productCode]; ok {
+					savedItem := savedItemR.(map[string]interface{})
+					currentDate, _ := time.Parse(time.RFC3339, priceItem["Period"].(string)+"Z")
+					savedDate, _ := time.Parse(time.RFC3339, savedItem["Period"].(string)+"Z")
+					if currentDate.After(savedDate) {
+						_prices[productCode] = priceItem
+					}
+				} else {
+					_prices[productCode] = priceItem
+				}
+			}
+		}
+	}
+}
 
 func syncManufacturers() {
 	url := "/1cbooks/odata/standard.odata/Catalog_%D0%9F%D1%80%D0%BE%D0%B8%D0%B7%D0%B2%D0%BE%D0%B4%D0%B8%D1%82%D0%B5%D0%BB%D0%B8/?$format=json"
@@ -47,11 +75,11 @@ func syncManufacturers() {
 	}
 }
 
-var existingAuthors map[string]bool
+var _existingAuthors map[string]bool
 
 func getAuthorTaxon(name string) string {
 	code := slugify.Slugify(name)
-	if existingAuthors[code] {
+	if _existingAuthors[code] {
 		return code
 	}
 	body, _ := json.Marshal(map[string]interface{}{
@@ -66,7 +94,7 @@ func getAuthorTaxon(name string) string {
 	})
 	fmt.Println("Creating author: " + code)
 	syliusRequest("PUT", "/api/v1/taxons/"+code, bytes.NewReader(body), "application/json")
-	existingAuthors[code] = true
+	_existingAuthors[code] = true
 	return code
 }
 
@@ -140,9 +168,11 @@ func initApp() {
 		log.Print("No .env file found")
 	}
 
-	existingAuthors = make(map[string]bool)
+	_existingAuthors = make(map[string]bool)
+	_prices = make(map[string]interface{})
 
 	fetchSyliusToken()
+	syncPrices()
 	syncManufacturers()
 	syncCategories()
 }
@@ -294,10 +324,36 @@ func importProduct(sourceProduct map[string]interface{}) {
 	result := syliusRequest("POST", "/api/v1/products/", body, contentType)
 
 	if val, ok := result["errors"]; ok {
-		color.Red("ERROR!")
+		color.Red("ERROR product!")
 		fmt.Println(productData["productTaxons"])
 		fmt.Println(val)
+	} else {
+		if priceItem, ok := _prices[sourceProduct["Ref_Key"].(string)]; ok {
+			price := priceItem.(map[string]interface{})["Цена"].(float64)
+			variantBody, _ := json.Marshal(map[string]interface{}{
+				"code":    slug,
+				"tracked": false,
+				"translations": map[string]interface{}{
+					"ru_RU": map[string]string{
+						"name": "Книга",
+					},
+				},
+				"channelPricings": map[string]interface{}{
+					"default": map[string]float64{
+						"price": price,
+					},
+				},
+			})
+			variantsResult := syliusRequest("POST", "/api/v1/products/"+slug+"/variants/", bytes.NewReader(variantBody), "application/json")
+			if val, ok := variantsResult["errors"]; ok {
+				color.Red("ERROR variants!")
+				fmt.Println(val)
+			}
+		} else {
+			color.Red("ERROR! Price not available")
+		}
 	}
+
 }
 
 func main() {
