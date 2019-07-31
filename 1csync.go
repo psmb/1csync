@@ -20,14 +20,10 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/joho/godotenv"
-	"pkg.re/essentialkaos/translit.v2"
+	"github.com/mozillazg/go-slugify"
 )
 
 var _syliusToken string
-
-func urlify(url string) string {
-	return strings.ToLower(strings.Replace(translit.EncodeToICAO(url), " ", "-", -1))
-}
 
 func syncManufacturers() {
 	url := "/1cbooks/odata/standard.odata/Catalog_%D0%9F%D1%80%D0%BE%D0%B8%D0%B7%D0%B2%D0%BE%D0%B4%D0%B8%D1%82%D0%B5%D0%BB%D0%B8/?$format=json"
@@ -43,12 +39,35 @@ func syncManufacturers() {
 			"translations": map[string]interface{}{
 				"ru_RU": map[string]string{
 					"name": name,
-					"slug": "category/publishers/" + urlify(name),
+					"slug": "category/publishers/" + slugify.Slugify(name),
 				},
 			},
 		})
 		syliusRequest("PUT", "/api/v1/taxons/"+code, bytes.NewReader(body), "application/json")
 	}
+}
+
+var existingAuthors map[string]bool
+
+func getAuthorTaxon(name string) string {
+	code := slugify.Slugify(name)
+	if existingAuthors[code] {
+		return code
+	}
+	body, _ := json.Marshal(map[string]interface{}{
+		"code":   code,
+		"parent": "authors",
+		"translations": map[string]interface{}{
+			"ru_RU": map[string]string{
+				"name": name,
+				"slug": "category/authors/" + code,
+			},
+		},
+	})
+	fmt.Println("Creating author: " + code)
+	syliusRequest("PUT", "/api/v1/taxons/"+code, bytes.NewReader(body), "application/json")
+	existingAuthors[code] = true
+	return code
 }
 
 var validCategories map[string]bool
@@ -70,7 +89,7 @@ func syncCategories() {
 				"translations": map[string]interface{}{
 					"ru_RU": map[string]string{
 						"name": name,
-						"slug": "category/books/" + urlify(name),
+						"slug": "category/books/" + slugify.Slugify(name),
 					},
 				},
 			})
@@ -120,6 +139,8 @@ func initApp() {
 	if err := godotenv.Load(); err != nil {
 		log.Print("No .env file found")
 	}
+
+	existingAuthors = make(map[string]bool)
 
 	fetchSyliusToken()
 	syncManufacturers()
@@ -215,6 +236,10 @@ func importProduct(sourceProduct map[string]interface{}) {
 		if dop["Свойство_Key"].(string) == "52f8b02d-552e-11e9-907f-14dae924f847" && validCategories[dop["Значение"].(string)] {
 			productTaxons = append(productTaxons, dop["Значение"].(string))
 		}
+		if dop["Свойство_Key"].(string) == "39c57eb5-5016-11e7-89aa-3085a93bff67" {
+			authorName := dop["Значение"].(string)
+			productTaxons = append(productTaxons, getAuthorTaxon(authorName))
+		}
 	}
 
 	productData := map[string]interface{}{
@@ -270,7 +295,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 
 	if val, ok := result["errors"]; ok {
 		color.Red("ERROR!")
-		fmt.Println(productData)
+		fmt.Println(productData["productTaxons"])
 		fmt.Println(val)
 	}
 }
