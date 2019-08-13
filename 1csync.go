@@ -5,8 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"image"
-	"image/jpeg"
 	"io"
 	"io/ioutil"
 	"log"
@@ -291,33 +289,27 @@ func importProduct(sourceProduct map[string]interface{}) {
 	for i, imageRaw := range images {
 		index := strconv.Itoa(i)
 		imageRaw := imageRaw.(map[string]interface{})
+		fmt.Println(imageRaw)
 		imageID := imageRaw["Ref_Key"].(string)
+		ext := imageRaw["Расширение"].(string)
 		fmt.Println("- Get image data")
 		imageDataRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/InformationRegister_%D0%94%D0%B2%D0%BE%D0%B8%D1%87%D0%BD%D1%8B%D0%B5%D0%94%D0%B0%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2(%D0%A4%D0%B0%D0%B9%D0%BB='"+imageID+"',%20%D0%A4%D0%B0%D0%B9%D0%BB_Type='StandardODATA.Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0%D0%9F%D1%80%D0%B8%D1%81%D0%BE%D0%B5%D0%B4%D0%B8%D0%BD%D0%B5%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D1%8B')/?$format=json", nil)
 		base64image := imageDataRaw["ДвоичныеДанныеФайла_Base64Data"].(string)
 		base64imageFixed := strings.ReplaceAll(base64image, "\r\n", "")
+		imageData, _ := base64.StdEncoding.DecodeString(base64imageFixed)
 
-		reader := base64.NewDecoder(base64.StdEncoding, strings.NewReader(base64imageFixed))
-		m, formatString, err := image.Decode(reader)
-		if err != nil {
-			panic(err)
-		}
-		if formatString != "jpeg" {
-			log.Println("Only jpeg image types are supported")
-		}
-
-		var imageBuffer bytes.Buffer
-		imageWriter := io.Writer(&imageBuffer)
-
-		jpeg.Encode(imageWriter, m, &jpeg.Options{Quality: 85})
-
-		imageType := "default"
+		var imageType string
 		if i == 0 {
 			imageType = "main"
+		} else if ext == "pdf" {
+			imageType = "pdf"
+		} else {
+			imageType = "default"
 		}
 
-		productData["images["+index+"][file]"] = imageBuffer.Bytes()
+		productData["images["+index+"][file]"] = imageData
 		productData["images["+index+"][type]"] = imageType
+
 	}
 
 	body, contentType := makeMultipartBody(productData)
@@ -362,6 +354,7 @@ func main() {
 
 	fmt.Println("Get products from 1C")
 	productsRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json&$filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20ne%20%27%27", nil)
+	// productsRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json&$filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20eq%20%27fedina%27", nil)
 	products := productsRaw["value"].([]interface{})
 	for _, productRaw := range products {
 
