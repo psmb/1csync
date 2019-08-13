@@ -289,7 +289,6 @@ func importProduct(sourceProduct map[string]interface{}) {
 	for i, imageRaw := range images {
 		index := strconv.Itoa(i)
 		imageRaw := imageRaw.(map[string]interface{})
-		fmt.Println(imageRaw)
 		imageID := imageRaw["Ref_Key"].(string)
 		ext := imageRaw["Расширение"].(string)
 		fmt.Println("- Get image data")
