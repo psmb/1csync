@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/fatih/color"
 	"github.com/joho/godotenv"
 	"github.com/mozillazg/go-slugify"
@@ -25,6 +26,15 @@ import (
 var _syliusToken string
 
 var _prices map[string]interface{}
+
+func logVerbose(value interface{}) {
+	argsWithoutProg := os.Args[1:]
+	if len(argsWithoutProg) > 0 {
+		if argsWithoutProg[0] == "-v" {
+			fmt.Println(value)
+		}
+	}
+}
 
 func syncPrices() {
 	url := "/1cbooks/odata/standard.odata/InformationRegister_%D0%A6%D0%B5%D0%BD%D1%8B%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D1%8B/?$format=json"
@@ -90,7 +100,7 @@ func getAuthorTaxon(name string) string {
 			},
 		},
 	})
-	fmt.Println("Creating author: " + code)
+	logVerbose("Creating author: " + code)
 	syliusRequest("PUT", "/api/v1/taxons/"+code, bytes.NewReader(body), "application/json")
 	_existingAuthors[code] = true
 	return code
@@ -198,7 +208,7 @@ func syliusRequest(requestType string, url string, body io.Reader, contentType s
 	if resp.StatusCode >= 500 && requestType != "DELETE" {
 		color.Magenta("PANIC!")
 		fmt.Println(req)
-		fmt.Println(decodedBody)
+		spew.Dump(decodedBody)
 		panic(decodedBody)
 	}
 	if errJSON != nil {
@@ -207,6 +217,16 @@ func syliusRequest(requestType string, url string, body io.Reader, contentType s
 		}
 	}
 	return decodedBody
+}
+
+func syliusPutRequest(url string, slug string, body io.Reader, contentType string) map[string]interface{} {
+	resourceExists := syliusRequest("GET", url+slug, nil, "application/json")
+	if resourceExists["code"] == 404.00 {
+		logVerbose("Creating new: " + url + ";" + slug)
+		return syliusRequest("POST", url, body, contentType)
+	}
+	logVerbose("Updating: " + url + ";" + slug)
+	return syliusRequest("PATCH", url+slug, body, contentType)
 }
 
 func odinCRequest(requestType string, url string, body io.Reader) map[string]interface{} {
@@ -246,11 +266,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 	sourceProductID := sourceProduct["Ref_Key"].(string)
 	slug := strings.Replace(sourceProduct["Артикул"].(string), " ", "-", -1)
 
-	fmt.Println("=== Importing product: " + slug + "===")
-
-	// Delete existing product as we can't PUT yet
-	// @see: https://github.com/Sylius/Sylius/issues/10532
-	syliusRequest("DELETE", "/api/v1/products/"+slug, nil, "application/json")
+	logVerbose("=== Importing product: " + slug + "===")
 
 	var productTaxons []string
 	manufacturerKey := sourceProduct["Производитель_Key"].(string)
@@ -265,54 +281,53 @@ func importProduct(sourceProduct map[string]interface{}) {
 			productTaxons = append(productTaxons, dop["Значение"].(string))
 		}
 		if dop["Свойство_Key"].(string) == "39c57eb5-5016-11e7-89aa-3085a93bff67" {
-			authorName := dop["Значение"].(string)
-			productTaxons = append(productTaxons, getAuthorTaxon(authorName))
+			authorNamesString := dop["Значение"].(string)
+			authorNames := strings.Split(authorNamesString, "===")
+			for _, authorName := range authorNames {
+				productTaxons = append(productTaxons, getAuthorTaxon(authorName))
+			}
 		}
 	}
 
 	productData := map[string]interface{}{
-		"code":                             slug,
-		"enabled":                          true,
-		"channels[0]":                      "default",
-		"translations[ru_RU][name]":        sourceProduct["НаименованиеПолное"].(string),
-		"translations[ru_RU][description]": sourceProduct["Описание"].(string),
-		"translations[ru_RU][slug]":        slug,
+		"code":    slug,
+		"enabled": true,
+		"translations": map[string]interface{}{
+			"ru_RU": map[string]string{
+				"name":             sourceProduct["НаименованиеЗаголовок"].(string),
+				"shortDescription": sourceProduct["НаименованиеПодаголовок"].(string),
+				"description":      sourceProduct["Описание"].(string),
+				"slug":             slug,
+			},
+		},
+		"channels": []string{"default"},
 	}
 	productTaxonsString := strings.Join(productTaxons, ",")
 	if len(productTaxonsString) > 0 {
 		productData["productTaxons"] = productTaxonsString
 	}
 
-	fmt.Println("Get images")
-	imagesRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0%D0%9F%D1%80%D0%B8%D1%81%D0%BE%D0%B5%D0%B4%D0%B8%D0%BD%D0%B5%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D1%8B/?$format=json&%24filter=%D0%92%D0%BB%D0%B0%D0%B4%D0%B5%D0%BB%D0%B5%D1%86%D0%A4%D0%B0%D0%B9%D0%BB%D0%B0_Key%20eq%20guid%27"+sourceProductID+"%27", nil)
-	images := imagesRaw["value"].([]interface{})
-	for i, imageRaw := range images {
-		index := strconv.Itoa(i)
-		imageRaw := imageRaw.(map[string]interface{})
-		imageID := imageRaw["Ref_Key"].(string)
-		ext := imageRaw["Расширение"].(string)
-		fmt.Println("- Get image data")
-		imageDataRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/InformationRegister_%D0%94%D0%B2%D0%BE%D0%B8%D1%87%D0%BD%D1%8B%D0%B5%D0%94%D0%B0%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2(%D0%A4%D0%B0%D0%B9%D0%BB='"+imageID+"',%20%D0%A4%D0%B0%D0%B9%D0%BB_Type='StandardODATA.Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0%D0%9F%D1%80%D0%B8%D1%81%D0%BE%D0%B5%D0%B4%D0%B8%D0%BD%D0%B5%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D1%8B')/?$format=json", nil)
-		base64image := imageDataRaw["ДвоичныеДанныеФайла_Base64Data"].(string)
-		base64imageFixed := strings.ReplaceAll(base64image, "\r\n", "")
-		imageData, _ := base64.StdEncoding.DecodeString(base64imageFixed)
-
-		var imageType string
-		if i == 0 {
-			imageType = "main"
-		} else if ext == "pdf" {
-			imageType = "pdf"
-		} else {
-			imageType = "default"
+	resourceExists := syliusRequest("GET", "/api/v1/products/"+slug+"/variants/"+slug, nil, "application/json")
+	if resourceExists["code"] != 404.00 {
+		logVerbose("Adding onhand fix")
+		productData["variant"] = map[string]interface{}{
+			"translations": map[string]interface{}{
+				"ru_RU": map[string]string{
+					"name": "Dummy variant to prevent the error",
+				},
+			},
+			"channelPricings": map[string]interface{}{
+				"default": map[string]float64{
+					"price": 123.00,
+				},
+			},
+			"onHand": 123.00,
 		}
-
-		productData["images["+index+"][file]"] = imageData
-		productData["images["+index+"][type]"] = imageType
-
 	}
 
-	body, contentType := makeMultipartBody(productData)
-	result := syliusRequest("POST", "/api/v1/products/", body, contentType)
+	productBody, _ := json.Marshal(productData)
+
+	result := syliusPutRequest("/api/v1/products/", slug, bytes.NewReader(productBody), "application/json")
 
 	if val, ok := result["errors"]; ok {
 		color.Red("ERROR product!")
@@ -326,7 +341,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 				"tracked": false,
 				"translations": map[string]interface{}{
 					"ru_RU": map[string]string{
-						"name": "Книга",
+						"name": "бумажный вариант",
 					},
 				},
 				"channelPricings": map[string]interface{}{
@@ -335,7 +350,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 					},
 				},
 			})
-			variantsResult := syliusRequest("POST", "/api/v1/products/"+slug+"/variants/", bytes.NewReader(variantBody), "application/json")
+			variantsResult := syliusPutRequest("/api/v1/products/"+slug+"/variants/", slug, bytes.NewReader(variantBody), "application/json")
 			if val, ok := variantsResult["errors"]; ok {
 				color.Red("ERROR variants!")
 				fmt.Println(val)
@@ -343,17 +358,53 @@ func importProduct(sourceProduct map[string]interface{}) {
 		} else {
 			color.Red("ERROR! Price not available")
 		}
+
+		logVerbose("Get images")
+		imagesRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0%D0%9F%D1%80%D0%B8%D1%81%D0%BE%D0%B5%D0%B4%D0%B8%D0%BD%D0%B5%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D1%8B/?$format=json&%24filter=%D0%92%D0%BB%D0%B0%D0%B4%D0%B5%D0%BB%D0%B5%D1%86%D0%A4%D0%B0%D0%B9%D0%BB%D0%B0_Key%20eq%20guid%27"+sourceProductID+"%27", nil)
+		images := imagesRaw["value"].([]interface{})
+		isFirst := true
+		imagesData := map[string]interface{}{}
+		for i, imageRaw := range images {
+			index := strconv.Itoa(i)
+			imageRaw := imageRaw.(map[string]interface{})
+			imageID := imageRaw["Ref_Key"].(string)
+			ext := imageRaw["Расширение"].(string)
+			logVerbose("- Get image data")
+			imageDataRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/InformationRegister_%D0%94%D0%B2%D0%BE%D0%B8%D1%87%D0%BD%D1%8B%D0%B5%D0%94%D0%B0%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2(%D0%A4%D0%B0%D0%B9%D0%BB='"+imageID+"',%20%D0%A4%D0%B0%D0%B9%D0%BB_Type='StandardODATA.Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0%D0%9F%D1%80%D0%B8%D1%81%D0%BE%D0%B5%D0%B4%D0%B8%D0%BD%D0%B5%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D1%8B')/?$format=json", nil)
+			base64image := imageDataRaw["ДвоичныеДанныеФайла_Base64Data"].(string)
+			base64imageFixed := strings.ReplaceAll(base64image, "\r\n", "")
+			imageData, _ := base64.StdEncoding.DecodeString(base64imageFixed)
+
+			var imageType string
+			if ext == "pdf" {
+				imageType = "pdf"
+			} else if isFirst {
+				isFirst = false
+				imageType = "main"
+			} else {
+				imageType = "default"
+			}
+
+			imagesData["images["+index+"][file]"] = imageData
+			imagesData["images["+index+"][type]"] = imageType
+		}
+		body, contentType := makeMultipartBody(imagesData)
+		imagesResult := syliusRequest("POST", "/api/v1/products/"+slug+"?_method=PATCH", body, contentType)
+		if val, ok := imagesResult["errors"]; ok {
+			color.Red("ERROR images!")
+			fmt.Println(val)
+		}
 	}
 
 }
 
 func main() {
-	fmt.Println("Syncing 1C and Sylius")
+	logVerbose("Syncing 1C and Sylius")
 	initApp()
 
-	fmt.Println("Get products from 1C")
+	logVerbose("Get products from 1C")
 	productsRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json&$filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20ne%20%27%27", nil)
-	// productsRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json&$filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20eq%20%27fedina%27", nil)
+	// productsRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json&$filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20eq%20%27prayers%27", nil)
 	products := productsRaw["value"].([]interface{})
 	for _, productRaw := range products {
 
@@ -381,6 +432,14 @@ func makeMultipartBody(values map[string]interface{}) (body io.Reader, contentTy
 				panic(err)
 			}
 			if _, err = io.Copy(writer, strings.NewReader(strconv.FormatBool(v))); err != nil {
+				panic(err)
+			}
+
+		case float64:
+			if writer, err = multipartWriter.CreateFormField(key); err != nil {
+				panic(err)
+			}
+			if _, err = io.Copy(writer, strings.NewReader(strconv.FormatFloat(v, 'g', -1, 64))); err != nil {
 				panic(err)
 			}
 		default:
