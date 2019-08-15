@@ -269,6 +269,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 	logVerbose("=== Importing product: " + slug + "===")
 
 	var productTaxons []string
+	mainTaxon := ""
 	manufacturerKey := sourceProduct["Производитель_Key"].(string)
 	if len(manufacturerKey) > 0 && manufacturerKey != "00000000-0000-0000-0000-000000000000" {
 		productTaxons = append(productTaxons, sourceProduct["Производитель_Key"].(string))
@@ -279,6 +280,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 		dop := dopRaw.(map[string]interface{})
 		if dop["Свойство_Key"].(string) == "52f8b02d-552e-11e9-907f-14dae924f847" && validCategories[dop["Значение"].(string)] {
 			productTaxons = append(productTaxons, dop["Значение"].(string))
+			mainTaxon = dop["Значение"].(string)
 		}
 		if dop["Свойство_Key"].(string) == "39c57eb5-5016-11e7-89aa-3085a93bff67" {
 			authorNamesString := dop["Значение"].(string)
@@ -305,6 +307,9 @@ func importProduct(sourceProduct map[string]interface{}) {
 	productTaxonsString := strings.Join(productTaxons, ",")
 	if len(productTaxonsString) > 0 {
 		productData["productTaxons"] = productTaxonsString
+	}
+	if len(mainTaxon) > 0 {
+		productData["mainTaxon"] = mainTaxon
 	}
 
 	resourceExists := syliusRequest("GET", "/api/v1/products/"+slug+"/variants/"+slug, nil, "application/json")
@@ -337,8 +342,9 @@ func importProduct(sourceProduct map[string]interface{}) {
 		if priceItem, ok := _prices[sourceProduct["Ref_Key"].(string)]; ok {
 			price := priceItem.(map[string]interface{})["Цена"].(float64)
 			variantBody, _ := json.Marshal(map[string]interface{}{
-				"code":    slug,
-				"tracked": false,
+				"code":             slug,
+				"tracked":          false,
+				"shippingRequired": true,
 				"translations": map[string]interface{}{
 					"ru_RU": map[string]string{
 						"name": "бумажный вариант",
@@ -399,7 +405,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 }
 
 func main() {
-	logVerbose("Syncing 1C and Sylius")
+	fmt.Println("Syncing 1C and Sylius")
 	initApp()
 
 	logVerbose("Get products from 1C")
@@ -411,6 +417,7 @@ func main() {
 		sourceProduct := productRaw.(map[string]interface{})
 		importProduct(sourceProduct)
 	}
+	fmt.Println("Done!")
 }
 
 func makeMultipartBody(values map[string]interface{}) (body io.Reader, contentType string) {
