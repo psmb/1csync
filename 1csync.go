@@ -264,12 +264,19 @@ func importProduct(sourceProduct map[string]interface{}) {
 		}
 	}()
 	sourceProductID := sourceProduct["Ref_Key"].(string)
-	slug := strings.Replace(sourceProduct["Артикул"].(string), " ", "-", -1)
+	slug := sourceProduct["Артикул"].(string)
 
 	logVerbose("=== Importing product: " + slug + "===")
 
+	type productAttribute map[string]string
+
 	var productTaxons []string
+	var productAttributes []productAttribute
 	mainTaxon := ""
+	weight := ""
+	width := ""
+	height := ""
+	depth := ""
 	manufacturerKey := sourceProduct["Производитель_Key"].(string)
 	if len(manufacturerKey) > 0 && manufacturerKey != "00000000-0000-0000-0000-000000000000" {
 		productTaxons = append(productTaxons, sourceProduct["Производитель_Key"].(string))
@@ -289,6 +296,74 @@ func importProduct(sourceProduct map[string]interface{}) {
 				productTaxons = append(productTaxons, getAuthorTaxon(authorName))
 			}
 		}
+		if dop["Свойство_Key"].(string) == "39c57eb4-5016-11e7-89aa-3085a93bff67" {
+			var attribute = map[string]string{
+				"attribute":  "isbn",
+				"localeCode": "ru_RU",
+				"value":      dop["Значение"].(string),
+			}
+			productAttributes = append(productAttributes, attribute)
+		}
+		if dop["Свойство_Key"].(string) == "3a64bacc-c8b8-11e9-94d8-08606ed6b998" {
+			var attribute = map[string]string{
+				"attribute":  "sostavitel",
+				"localeCode": "ru_RU",
+				"value":      dop["Значение"].(string),
+			}
+			productAttributes = append(productAttributes, attribute)
+		}
+		if dop["Свойство_Key"].(string) == "3a64bace-c8b8-11e9-94d8-08606ed6b998" {
+			var attribute = map[string]string{
+				"attribute":  "redactor",
+				"localeCode": "ru_RU",
+				"value":      dop["Значение"].(string),
+			}
+			productAttributes = append(productAttributes, attribute)
+		}
+		if dop["Свойство_Key"].(string) == "2270db75-ad8e-11e6-907d-14dae924f847" {
+			var attribute = map[string]string{
+				"attribute":  "perevodchik",
+				"localeCode": "ru_RU",
+				"value":      dop["Значение"].(string),
+			}
+			productAttributes = append(productAttributes, attribute)
+		}
+		if dop["Свойство_Key"].(string) == "3a64bad2-c8b8-11e9-94d8-08606ed6b998" {
+			var attribute = map[string]string{
+				"attribute":  "pages",
+				"localeCode": "ru_RU",
+				"value":      dop["Значение"].(string),
+			}
+			productAttributes = append(productAttributes, attribute)
+		}
+		if dop["Свойство_Key"].(string) == "3a64bad6-c8b8-11e9-94d8-08606ed6b998" {
+			var attribute = map[string]string{
+				"attribute":  "cover_type",
+				"localeCode": "ru_RU",
+				"value":      dop["Значение"].(string),
+			}
+			productAttributes = append(productAttributes, attribute)
+		}
+		if dop["Свойство_Key"].(string) == "3a64badc-c8b8-11e9-94d8-08606ed6b998" {
+			var attribute = map[string]string{
+				"attribute":  "recommendation",
+				"localeCode": "ru_RU",
+				"value":      dop["Значение"].(string),
+			}
+			productAttributes = append(productAttributes, attribute)
+		}
+		if dop["Свойство_Key"].(string) == "3a64bad8-c8b8-11e9-94d8-08606ed6b998" {
+			dimensionsString := dop["Значение"].(string)
+			dimensions := strings.Split(dimensionsString, "х")
+			if len(dimensions) == 3 {
+				width = dimensions[0]
+				height = dimensions[1]
+				depth = dimensions[2]
+			}
+		}
+		if dop["Свойство_Key"].(string) == "3a64bada-c8b8-11e9-94d8-08606ed6b998" {
+			weight = dop["Значение"].(string)
+		}
 	}
 
 	productData := map[string]interface{}{
@@ -302,7 +377,8 @@ func importProduct(sourceProduct map[string]interface{}) {
 				"slug":             slug,
 			},
 		},
-		"channels": []string{"default"},
+		"attributes": productAttributes,
+		"channels":   []string{"default"},
 	}
 	productTaxonsString := strings.Join(productTaxons, ",")
 	if len(productTaxonsString) > 0 {
@@ -315,7 +391,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 	resourceExists := syliusRequest("GET", "/api/v1/products/"+slug+"/variants/"+slug, nil, "application/json")
 	if resourceExists["code"] != 404.00 {
 		logVerbose("Adding onhand fix")
-		productData["variant"] = map[string]interface{}{
+		variant := map[string]interface{}{
 			"translations": map[string]interface{}{
 				"ru_RU": map[string]string{
 					"name": "Dummy variant to prevent the error",
@@ -328,6 +404,19 @@ func importProduct(sourceProduct map[string]interface{}) {
 			},
 			"onHand": 123.00,
 		}
+		if weight != "" {
+			variant["weight"] = weight
+		}
+		if width != "" {
+			variant["width"] = width
+		}
+		if height != "" {
+			variant["height"] = height
+		}
+		if depth != "" {
+			variant["depth"] = depth
+		}
+		productData["variant"] = variant
 	}
 
 	productBody, _ := json.Marshal(productData)
