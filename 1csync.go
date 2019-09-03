@@ -443,30 +443,37 @@ func importProduct(sourceProduct map[string]interface{}) {
 		fmt.Println(productData["productTaxons"])
 		fmt.Println(val)
 	} else {
+		price := 0.0
 		if priceItem, ok := _prices[sourceProduct["Ref_Key"].(string)]; ok {
-			price := priceItem.(map[string]interface{})["Цена"].(float64)
-			variantBody, _ := json.Marshal(map[string]interface{}{
-				"code":             slug,
-				"tracked":          false,
-				"shippingRequired": true,
-				"translations": map[string]interface{}{
-					"ru_RU": map[string]string{
-						"name": "бумажный вариант",
-					},
-				},
-				"channelPricings": map[string]interface{}{
-					"default": map[string]float64{
-						"price": price,
-					},
-				},
-			})
-			variantsResult := syliusPutRequest("/api/v1/products/"+slug+"/variants/", slug, bytes.NewReader(variantBody), "application/json")
-			if val, ok := variantsResult["errors"]; ok {
-				color.Red("ERROR variants!")
-				fmt.Println(val)
-			}
+			price = priceItem.(map[string]interface{})["Цена"].(float64)
 		} else {
-			color.Red("ERROR! Price not available")
+			color.Yellow("Price not available")
+		}
+
+		variant := map[string]interface{}{
+			"code":             slug,
+			"tracked":          false,
+			"shippingRequired": true,
+			"translations": map[string]interface{}{
+				"ru_RU": map[string]string{
+					"name": "бумажный вариант",
+				},
+			},
+		}
+		if price != 0.0 {
+			variant["channelPricings"] = map[string]interface{}{
+				"default": map[string]float64{
+					"price": price,
+				},
+			}
+		}
+
+		variantBody, _ := json.Marshal(variant)
+
+		variantsResult := syliusPutRequest("/api/v1/products/"+slug+"/variants/", slug, bytes.NewReader(variantBody), "application/json")
+		if val, ok := variantsResult["errors"]; ok {
+			color.Red("ERROR variants!")
+			fmt.Println(val)
 		}
 
 		logVerbose("Get images")
@@ -512,7 +519,14 @@ func main() {
 	fmt.Println("Syncing 1C and Sylius")
 	initApp()
 
+	_existingProducts := make([]string, 0)
+	existingProducts := syliusRequest("GET", "/api/v1/products/?limit=1000", nil, "application/json")
+	for _, product := range existingProducts["_embedded"].(map[string]interface{})["items"].([]interface{}) {
+		_existingProducts = append(_existingProducts, product.(map[string]interface{})["code"].(string))
+	}
+
 	logVerbose("Get products from 1C")
+	_newProducts := make([]string, 0)
 	productsRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json&$filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20ne%20%27%27&$orderby=%D0%94%D0%B0%D1%82%D0%B0%D0%9F%D0%B5%D1%80%D0%B5%D0%B8%D0%B7%D0%B4%D0%B0%D0%BD%D0%B8%D1%8F%20asc", nil)
 	// productsRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json&$filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20eq%20%27prayers%27", nil)
 	products := productsRaw["value"].([]interface{})
@@ -520,6 +534,18 @@ func main() {
 
 		sourceProduct := productRaw.(map[string]interface{})
 		importProduct(sourceProduct)
+		slug := sourceProduct["Артикул"].(string)
+		_newProducts = append(_newProducts, slug)
+	}
+
+	for _, slug := range _existingProducts {
+		if !containsString(_newProducts, slug) {
+			body, _ := json.Marshal(map[string]interface{}{
+				"enabled": false,
+			})
+			syliusRequest("PATCH", "/api/v1/products/"+slug, bytes.NewReader(body), "application/json")
+			logVerbose("Disabled " + slug)
+		}
 	}
 	fmt.Println("Done!")
 }
@@ -575,4 +601,13 @@ func randString(n int) string {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 	return string(b)
+}
+
+func containsString(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
