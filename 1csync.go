@@ -366,6 +366,21 @@ func importProduct(sourceProduct map[string]interface{}) {
 		}
 	}
 
+	publishDate := sourceProduct["ДатаПереиздания"].(string)
+	if publishDate == "0001-01-01T00:00:00" {
+		publishDate = "1971-01-01T00:00:00"
+	}
+	publishDateObject, err := time.Parse(time.RFC3339, publishDate+"Z")
+	if err != nil {
+		fmt.Println("Error while parsing date :", err)
+	}
+	var datePublish = map[string]string{
+		"attribute":  "publish_date",
+		"localeCode": "ru_RU",
+		"value":      strconv.FormatInt(publishDateObject.Unix(), 10),
+	}
+	productAttributes = append(productAttributes, datePublish)
+
 	productData := map[string]interface{}{
 		"code":    slug,
 		"enabled": true,
