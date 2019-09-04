@@ -62,8 +62,15 @@ func syncPrices() {
 }
 
 func syncManufacturers() {
+	_existingManufacturers := make([]string, 0)
+	existingManufacturers := syliusRequest("GET", "/api/v1/taxons/publishers", nil, "application/json")
+	for _, authorItem := range existingManufacturers["children"].([]interface{}) {
+		_existingManufacturers = append(_existingManufacturers, authorItem.(map[string]interface{})["code"].(string))
+	}
+
 	url := "/1cbooks/odata/standard.odata/Catalog_%D0%9F%D1%80%D0%BE%D0%B8%D0%B7%D0%B2%D0%BE%D0%B4%D0%B8%D1%82%D0%B5%D0%BB%D0%B8/?$format=json"
 
+	_newManufacturers := make([]string, 0)
 	manufacterersR := odinCRequest("GET", url, nil)
 	for _, manufacturerRaw := range manufacterersR["value"].([]interface{}) {
 		manufacterer := manufacturerRaw.(map[string]interface{})
@@ -80,14 +87,34 @@ func syncManufacturers() {
 			},
 		})
 		syliusRequest("PUT", "/api/v1/taxons/"+code, bytes.NewReader(body), "application/json")
+
+		_newManufacturers = append(_newManufacturers, code)
+	}
+
+	for _, slug := range _existingManufacturers {
+		if !containsString(_newManufacturers, slug) {
+			syliusRequest("DELETE", "/api/v1/taxons/"+slug, nil, "application/json")
+			logVerbose("Deleted author " + slug)
+		}
 	}
 }
 
-var _existingAuthors map[string]bool
+var _importedAuthors map[string]bool
+
+func pruneAuthors() {
+	existingAuthors := syliusRequest("GET", "/api/v1/taxons/authors", nil, "application/json")
+	for _, authorItem := range existingAuthors["children"].([]interface{}) {
+		slug := authorItem.(map[string]interface{})["code"].(string)
+		if !_importedAuthors[slug] {
+			syliusRequest("DELETE", "/api/v1/taxons/"+slug, nil, "application/json")
+			logVerbose("Deleted author " + slug)
+		}
+	}
+}
 
 func getAuthorTaxon(name string) string {
 	code := slugify.Slugify(name)
-	if _existingAuthors[code] {
+	if _importedAuthors[code] {
 		return code
 	}
 	body, _ := json.Marshal(map[string]interface{}{
@@ -102,7 +129,7 @@ func getAuthorTaxon(name string) string {
 	})
 	logVerbose("Creating author: " + code)
 	syliusRequest("PUT", "/api/v1/taxons/"+code, bytes.NewReader(body), "application/json")
-	_existingAuthors[code] = true
+	_importedAuthors[code] = true
 	return code
 }
 
@@ -176,7 +203,7 @@ func initApp() {
 		log.Print("No .env file found")
 	}
 
-	_existingAuthors = make(map[string]bool)
+	_importedAuthors = make(map[string]bool)
 	_prices = make(map[string]interface{})
 
 	fetchSyliusToken()
@@ -440,40 +467,33 @@ func importProduct(sourceProduct map[string]interface{}) {
 
 	if val, ok := result["errors"]; ok {
 		color.Red("ERROR product!")
-		fmt.Println(productData["productTaxons"])
-		fmt.Println(val)
+		fmt.Println(string(productBody))
+		spew.Dump(val)
 	} else {
-		price := 0.0
 		if priceItem, ok := _prices[sourceProduct["Ref_Key"].(string)]; ok {
-			price = priceItem.(map[string]interface{})["Цена"].(float64)
-		} else {
-			color.Yellow("Price not available")
-		}
-
-		variant := map[string]interface{}{
-			"code":             slug,
-			"tracked":          false,
-			"shippingRequired": true,
-			"translations": map[string]interface{}{
-				"ru_RU": map[string]string{
-					"name": "бумажный вариант",
+			variantBody, _ := json.Marshal(map[string]interface{}{
+				"code":             slug,
+				"tracked":          false,
+				"shippingRequired": true,
+				"translations": map[string]interface{}{
+					"ru_RU": map[string]string{
+						"name": "бумажный вариант",
+					},
 				},
-			},
-		}
-		if price != 0.0 {
-			variant["channelPricings"] = map[string]interface{}{
-				"default": map[string]float64{
-					"price": price,
+				"channelPricings": map[string]interface{}{
+					"default": map[string]float64{
+						"price": priceItem.(map[string]interface{})["Цена"].(float64),
+					},
 				},
+			})
+			variantsResult := syliusPutRequest("/api/v1/products/"+slug+"/variants/", slug, bytes.NewReader(variantBody), "application/json")
+			if val, ok := variantsResult["errors"]; ok {
+				color.Red("ERROR variants!")
+				fmt.Println(val)
 			}
-		}
-
-		variantBody, _ := json.Marshal(variant)
-
-		variantsResult := syliusPutRequest("/api/v1/products/"+slug+"/variants/", slug, bytes.NewReader(variantBody), "application/json")
-		if val, ok := variantsResult["errors"]; ok {
-			color.Red("ERROR variants!")
-			fmt.Println(val)
+		} else {
+			syliusRequest("DELETE", "/api/v1/products/"+slug+"/variants/"+slug, nil, "application/json")
+			color.Yellow("Price not available, deleted variant")
 		}
 
 		logVerbose("Get images")
@@ -528,10 +548,9 @@ func main() {
 	logVerbose("Get products from 1C")
 	_newProducts := make([]string, 0)
 	productsRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json&$filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20ne%20%27%27&$orderby=%D0%94%D0%B0%D1%82%D0%B0%D0%9F%D0%B5%D1%80%D0%B5%D0%B8%D0%B7%D0%B4%D0%B0%D0%BD%D0%B8%D1%8F%20asc", nil)
-	// productsRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json&$filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20eq%20%27prayers%27", nil)
+	// productsRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json&$filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20eq%20%27PB-1%27", nil)
 	products := productsRaw["value"].([]interface{})
 	for _, productRaw := range products {
-
 		sourceProduct := productRaw.(map[string]interface{})
 		importProduct(sourceProduct)
 		slug := sourceProduct["Артикул"].(string)
@@ -547,6 +566,8 @@ func main() {
 			logVerbose("Disabled " + slug)
 		}
 	}
+
+	pruneAuthors()
 	fmt.Println("Done!")
 }
 
