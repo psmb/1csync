@@ -506,6 +506,9 @@ func importProduct(sourceProduct map[string]interface{}) {
 			imageRaw := imageRaw.(map[string]interface{})
 			imageID := imageRaw["Ref_Key"].(string)
 			ext := imageRaw["Расширение"].(string)
+			title := imageRaw["Description"].(string)
+			description := imageRaw["Описание"].(string)
+			isPaid := description == "$"
 			logVerbose("- Get image data")
 			imageDataRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/InformationRegister_%D0%94%D0%B2%D0%BE%D0%B8%D1%87%D0%BD%D1%8B%D0%B5%D0%94%D0%B0%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2(%D0%A4%D0%B0%D0%B9%D0%BB='"+imageID+"',%20%D0%A4%D0%B0%D0%B9%D0%BB_Type='StandardODATA.Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0%D0%9F%D1%80%D0%B8%D1%81%D0%BE%D0%B5%D0%B4%D0%B8%D0%BD%D0%B5%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D1%8B')/?$format=json", nil)
 			base64image := imageDataRaw["ДвоичныеДанныеФайла_Base64Data"].(string)
@@ -513,7 +516,9 @@ func importProduct(sourceProduct map[string]interface{}) {
 			imageData, _ := base64.StdEncoding.DecodeString(base64imageFixed)
 
 			var imageType string
-			if ext == "pdf" {
+			if isPaid {
+				imageType = "paid"
+			} else if ext == "pdf" {
 				imageType = "pdf"
 			} else if isFirst {
 				isFirst = false
@@ -524,12 +529,13 @@ func importProduct(sourceProduct map[string]interface{}) {
 
 			imagesData["images["+index+"][file]"] = imageData
 			imagesData["images["+index+"][type]"] = imageType
+			imagesData["images["+index+"][title]"] = title
 		}
 		body, contentType := makeMultipartBody(imagesData)
 		imagesResult := syliusRequest("POST", "/api/v1/products/"+slug+"?_method=PATCH", body, contentType)
 		if val, ok := imagesResult["errors"]; ok {
 			color.Red("ERROR images!")
-			fmt.Println(val)
+			spew.Dump(val)
 		}
 	}
 
