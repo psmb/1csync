@@ -584,7 +584,7 @@ func importVariant(sourceProduct map[string]interface{}) {
 	isFirst := true
 	imagesData := map[string]interface{}{}
 	for i, imageRaw := range images {
-		index := strconv.Itoa(i)
+		index := strconv.Itoa(100 + i)
 		imageRaw := imageRaw.(map[string]interface{})
 		imageID := imageRaw["Ref_Key"].(string)
 		ext := imageRaw["Расширение"].(string)
