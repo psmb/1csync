@@ -30,7 +30,11 @@ var variantTypes = map[string]interface{}{
 	},
 	"ebook": map[string]interface{}{
 		"shippingRequired": false,
-		"title":            "цифровая книга",
+		"title":            "электронная книга",
+	},
+	"audio": map[string]interface{}{
+		"shippingRequired": false,
+		"title":            "аудио книга",
 	},
 }
 
