@@ -565,7 +565,9 @@ func importProduct(sourceProduct map[string]interface{}) {
 				imagesData["images["+index+"][file]"] = imageData
 				imagesData["images["+index+"][type]"] = imageType
 				imagesData["images["+index+"][title]"] = title
-				imagesData["images["+index+"][productVariants]"] = variantSlug
+				if variantType != "default" {
+					imagesData["images["+index+"][productVariants]"] = variantSlug
+				}
 			}
 		}
 		body, contentType := makeMultipartBody(imagesData)
