@@ -489,7 +489,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 				panic("Wrong variant: " + variantSlug)
 			}
 
-			if priceItem, ok := _prices[variantID]; ok {
+			if priceItem, ok := _prices[variantID]; ok && priceItem.(map[string]interface{})["Цена"].(float64) > 0.00 {
 				variantObject := map[string]interface{}{
 					"code":             variantSlug,
 					"tracked":          false,
