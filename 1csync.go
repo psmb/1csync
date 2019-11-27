@@ -489,6 +489,16 @@ func importProduct(sourceProduct map[string]interface{}) {
 				panic("Wrong variant: " + variantSlug)
 			}
 
+			originalPrice := 0.0
+			dops := variant["ДополнительныеРеквизиты"].([]interface{})
+
+			for _, dopRaw := range dops {
+				dop := dopRaw.(map[string]interface{})
+				if dop["Свойство_Key"].(string) == "6ad734de-09dc-11ea-98c8-08606ed6b998" {
+					originalPrice = dop["Значение"].(float64)
+				}
+			}
+
 			if priceItem, ok := _prices[variantID]; ok && priceItem.(map[string]interface{})["Цена"].(float64) > 0.00 {
 				variantObject := map[string]interface{}{
 					"code":             variantSlug,
@@ -518,6 +528,9 @@ func importProduct(sourceProduct map[string]interface{}) {
 					if depth != "" {
 						variantObject["depth"] = depth
 					}
+				}
+				if originalPrice > 0 {
+					variantObject["originalPrice"] = originalPrice
 				}
 				variantBody, _ := json.Marshal(variantObject)
 				variantsResult := syliusPutRequest("/api/v1/products/"+slug+"/variants/", variantSlug, bytes.NewReader(variantBody), "application/json")
