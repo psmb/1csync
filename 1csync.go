@@ -495,7 +495,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 			for _, dopRaw := range dops {
 				dop := dopRaw.(map[string]interface{})
 				if dop["Свойство_Key"].(string) == "6ad734de-09dc-11ea-98c8-08606ed6b998" {
-					originalPrice = dop["Значение"].(float64)
+					originalPrice, _ = strconv.ParseFloat(dop["Значение"].(string), 64)
 				}
 			}
 
