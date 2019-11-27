@@ -530,7 +530,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 					}
 				}
 				if originalPrice > 0 {
-					variantObject["originalPrice"] = originalPrice
+					variantObject["channelPricings"].(map[string]interface{})["default"].(map[string]interface{})["originalPrice"] = originalPrice
 				}
 				variantBody, _ := json.Marshal(variantObject)
 				variantsResult := syliusPutRequest("/api/v1/products/"+slug+"/variants/", variantSlug, bytes.NewReader(variantBody), "application/json")
