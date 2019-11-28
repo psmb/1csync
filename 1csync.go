@@ -489,7 +489,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 				panic("Wrong variant: " + variantSlug)
 			}
 
-			originalPrice := 0.0
+			var originalPrice float64
 			dops := variant["ДополнительныеРеквизиты"].([]interface{})
 
 			for _, dopRaw := range dops {
@@ -530,7 +530,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 					}
 				}
 				if originalPrice > 0 {
-					variantObject["channelPricings"].(map[string]interface{})["default"].(map[string]interface{})["originalPrice"] = originalPrice
+					variantObject["channelPricings"].(map[string]interface{})["default"].(map[string]float64)["originalPrice"] = originalPrice
 				}
 				variantBody, _ := json.Marshal(variantObject)
 				variantsResult := syliusPutRequest("/api/v1/products/"+slug+"/variants/", variantSlug, bytes.NewReader(variantBody), "application/json")
