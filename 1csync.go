@@ -408,6 +408,13 @@ func importProduct(sourceProduct map[string]interface{}) {
 		if dop["Свойство_Key"].(string) == "3a64bada-c8b8-11e9-94d8-08606ed6b998" {
 			weight = dop["Значение"].(string)
 		}
+		// set the discount if originalPrice is set
+		if dop["Свойство_Key"].(string) == "6ad734de-09dc-11ea-98c8-08606ed6b998" {
+			originalPrice, _ := strconv.ParseFloat(dop["Значение"].(string), 64)
+			if originalPrice > 0 {
+				productTaxons = append(productTaxons, "6ad73508-09dc-11ea-98c8-08606ed6b998")
+			}
+		}
 	}
 
 	publishDate := sourceProduct["ДатаПереиздания"].(string)
