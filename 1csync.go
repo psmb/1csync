@@ -54,7 +54,7 @@ func logVerbose(value interface{}) {
 }
 
 func syncPrices() {
-	url := "/1cbooks/odata/standard.odata/InformationRegister_%D0%A6%D0%B5%D0%BD%D1%8B%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D1%8B/?$format=json"
+	url := "/odata/standard.odata/InformationRegister_%D0%A6%D0%B5%D0%BD%D1%8B%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D1%8B/?$format=json"
 
 	pricesR := odinCRequest("GET", url, nil)
 	for _, readersRaw := range pricesR["value"].([]interface{}) {
@@ -85,7 +85,7 @@ func syncManufacturers() {
 		_existingManufacturers = append(_existingManufacturers, authorItem.(map[string]interface{})["code"].(string))
 	}
 
-	url := "/1cbooks/odata/standard.odata/Catalog_%D0%9F%D1%80%D0%BE%D0%B8%D0%B7%D0%B2%D0%BE%D0%B4%D0%B8%D1%82%D0%B5%D0%BB%D0%B8/?$format=json"
+	url := "/odata/standard.odata/Catalog_%D0%9F%D1%80%D0%BE%D0%B8%D0%B7%D0%B2%D0%BE%D0%B4%D0%B8%D1%82%D0%B5%D0%BB%D0%B8/?$format=json"
 
 	_newManufacturers := make([]string, 0)
 	manufacterersR := odinCRequest("GET", url, nil)
@@ -153,7 +153,7 @@ func getAuthorTaxon(name string) string {
 var validCategories map[string]bool
 
 func syncCategories() {
-	url := "/1cbooks/odata/standard.odata/Catalog_%D0%97%D0%BD%D0%B0%D1%87%D0%B5%D0%BD%D0%B8%D1%8F%D0%A1%D0%B2%D0%BE%D0%B9%D1%81%D1%82%D0%B2%D0%9E%D0%B1%D1%8A%D0%B5%D0%BA%D1%82%D0%BE%D0%B2%D0%98%D0%B5%D1%80%D0%B0%D1%80%D1%85%D0%B8%D1%8F/?$format=json"
+	url := "/odata/standard.odata/Catalog_%D0%97%D0%BD%D0%B0%D1%87%D0%B5%D0%BD%D0%B8%D1%8F%D0%A1%D0%B2%D0%BE%D0%B9%D1%81%D1%82%D0%B2%D0%9E%D0%B1%D1%8A%D0%B5%D0%BA%D1%82%D0%BE%D0%B2%D0%98%D0%B5%D1%80%D0%B0%D1%80%D1%85%D0%B8%D1%8F/?$format=json"
 
 	catgoriesR := odinCRequest("GET", url, nil)
 	validCategories = make(map[string]bool)
@@ -551,7 +551,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 			}
 
 			logVerbose("Get images")
-			imagesRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0%D0%9F%D1%80%D0%B8%D1%81%D0%BE%D0%B5%D0%B4%D0%B8%D0%BD%D0%B5%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D1%8B/?$format=json&%24filter=%D0%92%D0%BB%D0%B0%D0%B4%D0%B5%D0%BB%D0%B5%D1%86%D0%A4%D0%B0%D0%B9%D0%BB%D0%B0_Key%20eq%20guid%27"+variantID+"%27", nil)
+			imagesRaw := odinCRequest("GET", "/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0%D0%9F%D1%80%D0%B8%D1%81%D0%BE%D0%B5%D0%B4%D0%B8%D0%BD%D0%B5%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D1%8B/?$format=json&%24filter=%D0%92%D0%BB%D0%B0%D0%B4%D0%B5%D0%BB%D0%B5%D1%86%D0%A4%D0%B0%D0%B9%D0%BB%D0%B0_Key%20eq%20guid%27"+variantID+"%27", nil)
 			images := imagesRaw["value"].([]interface{})
 			isFirst := true
 
@@ -565,7 +565,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 				description := imageRaw["Описание"].(string)
 				isPaid := description == "$"
 				logVerbose("- Get image data")
-				imageDataRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/InformationRegister_%D0%94%D0%B2%D0%BE%D0%B8%D1%87%D0%BD%D1%8B%D0%B5%D0%94%D0%B0%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2(%D0%A4%D0%B0%D0%B9%D0%BB='"+imageID+"',%20%D0%A4%D0%B0%D0%B9%D0%BB_Type='StandardODATA.Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0%D0%9F%D1%80%D0%B8%D1%81%D0%BE%D0%B5%D0%B4%D0%B8%D0%BD%D0%B5%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D1%8B')/?$format=json", nil)
+				imageDataRaw := odinCRequest("GET", "/odata/standard.odata/InformationRegister_%D0%94%D0%B2%D0%BE%D0%B8%D1%87%D0%BD%D1%8B%D0%B5%D0%94%D0%B0%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2(%D0%A4%D0%B0%D0%B9%D0%BB='"+imageID+"',%20%D0%A4%D0%B0%D0%B9%D0%BB_Type='StandardODATA.Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0%D0%9F%D1%80%D0%B8%D1%81%D0%BE%D0%B5%D0%B4%D0%B8%D0%BD%D0%B5%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D1%8B')/?$format=json", nil)
 				base64image := imageDataRaw["ДвоичныеДанныеФайла_Base64Data"].(string)
 				base64imageFixed := strings.ReplaceAll(base64image, "\r\n", "")
 				imageData, _ := base64.StdEncoding.DecodeString(base64imageFixed)
@@ -612,8 +612,8 @@ func main() {
 	logVerbose("Get products from 1C")
 	_newProducts := make([]string, 0)
 	products := make([]interface{}, 0)
-	productsAndVariantsRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json&$filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20ne%20%27%27&$orderby=%D0%94%D0%B0%D1%82%D0%B0%D0%9F%D0%B5%D1%80%D0%B5%D0%B8%D0%B7%D0%B4%D0%B0%D0%BD%D0%B8%D1%8F%20asc", nil)
-	// productsAndVariantsRaw := odinCRequest("GET", "/1cbooks/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json&$filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20eq%20%27ethics-10%27", nil)
+	productsAndVariantsRaw := odinCRequest("GET", "/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json&$filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20ne%20%27%27&$orderby=%D0%94%D0%B0%D1%82%D0%B0%D0%9F%D0%B5%D1%80%D0%B5%D0%B8%D0%B7%D0%B4%D0%B0%D0%BD%D0%B8%D1%8F%20asc", nil)
+	// productsAndVariantsRaw := odinCRequest("GET", "/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json&$filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20eq%20%27ethics-10%27", nil)
 	productsAndVariants := productsAndVariantsRaw["value"].([]interface{})
 	for _, productRaw := range productsAndVariants {
 		sourceProduct := productRaw.(map[string]interface{})
