@@ -42,6 +42,8 @@ var _syliusToken string
 
 var _prices map[string]interface{}
 
+var _values map[string]interface{}
+
 var _variants map[string][]map[string]interface{}
 
 func logVerbose(value interface{}) {
@@ -75,6 +77,19 @@ func syncPrices() {
 				}
 			}
 		}
+	}
+}
+
+func fetchValues() {
+	url := "/odata/standard.odata/Catalog_%D0%97%D0%BD%D0%B0%D1%87%D0%B5%D0%BD%D0%B8%D1%8F%D0%A1%D0%B2%D0%BE%D0%B9%D1%81%D1%82%D0%B2%D0%9E%D0%B1%D1%8A%D0%B5%D0%BA%D1%82%D0%BE%D0%B2/?$format=json"
+
+	valuesR := odinCRequest("GET", url, nil)
+	for _, valuesR := range valuesR["value"].([]interface{}) {
+		valueItemRaw := valuesR.(map[string]interface{})
+		valueItem := valueItemRaw
+		ref := valueItem["Ref_Key"].(string)
+		name := valueItem["Description"].(string)
+		_values[ref] = name
 	}
 }
 
@@ -221,10 +236,12 @@ func initApp() {
 	}
 
 	_importedAuthors = make(map[string]bool)
+	_values = make(map[string]interface{})
 	_prices = make(map[string]interface{})
 	_variants = make(map[string][]map[string]interface{})
 
 	fetchSyliusToken()
+	fetchValues()
 	syncPrices()
 	syncManufacturers()
 	syncCategories()
@@ -334,10 +351,30 @@ func importProduct(sourceProduct map[string]interface{}) {
 			mainTaxon = dop["Значение"].(string)
 		}
 		if dop["Свойство_Key"].(string) == "39c57eb5-5016-11e7-89aa-3085a93bff67" {
-			authorNamesString := dop["Значение"].(string)
-			authorNames := strings.Split(authorNamesString, "===")
-			for _, authorName := range authorNames {
+			authorRefString := dop["Значение"].(string)
+			if val, ok := _values[authorRefString]; ok {
+				authorName := val.(string)
 				productTaxons = append(productTaxons, getAuthorTaxon(authorName))
+			} else {
+				fmt.Println("Invalid author value", authorRefString)
+			}
+		}
+		if dop["Свойство_Key"].(string) == "1041e44a-b526-11ea-8190-74d02b904d6f" {
+			authorRefString := dop["Значение"].(string)
+			if val, ok := _values[authorRefString]; ok {
+				authorName := val.(string)
+				productTaxons = append(productTaxons, getAuthorTaxon(authorName))
+			} else {
+				fmt.Println("Invalid author value", authorRefString)
+			}
+		}
+		if dop["Свойство_Key"].(string) == "d47747b8-50a6-11e9-be34-2c56dc4f4a15" {
+			authorRefString := dop["Значение"].(string)
+			if val, ok := _values[authorRefString]; ok {
+				authorName := val.(string)
+				productTaxons = append(productTaxons, getAuthorTaxon(authorName))
+			} else {
+				fmt.Println("Invalid author value", authorRefString)
 			}
 		}
 		if dop["Свойство_Key"].(string) == "39c57eb4-5016-11e7-89aa-3085a93bff67" {
