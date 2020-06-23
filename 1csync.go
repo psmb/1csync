@@ -177,7 +177,7 @@ func syncCategories() {
 		code := category["Ref_Key"].(string)
 		parentKey := category["Parent_Key"].(string)
 		name := category["Description"].(string)
-		if parentKey == "79da890c-ac54-11e9-a4b0-08606ed6b998" {
+		if parentKey == "d33bd5fe-38f1-11ea-8177-74d02b904d6f" {
 			body, _ := json.Marshal(map[string]interface{}{
 				"code":   code,
 				"parent": "books",
