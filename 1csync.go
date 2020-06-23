@@ -346,10 +346,12 @@ func importProduct(sourceProduct map[string]interface{}) {
 
 	for _, dopRaw := range dops {
 		dop := dopRaw.(map[string]interface{})
+		// Category
 		if dop["Свойство_Key"].(string) == "52f8b02d-552e-11e9-907f-14dae924f847" && validCategories[dop["Значение"].(string)] {
 			productTaxons = append(productTaxons, dop["Значение"].(string))
 			mainTaxon = dop["Значение"].(string)
 		}
+		// Author1
 		if dop["Свойство_Key"].(string) == "39c57eb5-5016-11e7-89aa-3085a93bff67" {
 			authorRefString := dop["Значение"].(string)
 			if val, ok := _values[authorRefString]; ok {
@@ -359,6 +361,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 				fmt.Println("Invalid author value", authorRefString)
 			}
 		}
+		// Author2
 		if dop["Свойство_Key"].(string) == "1041e448-b526-11ea-8190-74d02b904d6f" {
 			authorRefString := dop["Значение"].(string)
 			if val, ok := _values[authorRefString]; ok {
@@ -368,6 +371,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 				fmt.Println("Invalid author value", authorRefString)
 			}
 		}
+		// Author3
 		if dop["Свойство_Key"].(string) == "1041e44a-b526-11ea-8190-74d02b904d6f" {
 			authorRefString := dop["Значение"].(string)
 			if val, ok := _values[authorRefString]; ok {
@@ -377,6 +381,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 				fmt.Println("Invalid author value", authorRefString)
 			}
 		}
+		// ISBN
 		if dop["Свойство_Key"].(string) == "39c57eb4-5016-11e7-89aa-3085a93bff67" {
 			var attribute = map[string]string{
 				"attribute":  "isbn",
@@ -385,7 +390,8 @@ func importProduct(sourceProduct map[string]interface{}) {
 			}
 			productAttributes = append(productAttributes, attribute)
 		}
-		if dop["Свойство_Key"].(string) == "3a64bacc-c8b8-11e9-94d8-08606ed6b998" {
+		// Sostavitel
+		if dop["Свойство_Key"].(string) == "d33bd5eb-38f1-11ea-8177-74d02b904d6f" {
 			var attribute = map[string]string{
 				"attribute":  "sostavitel",
 				"localeCode": "ru_RU",
@@ -393,7 +399,8 @@ func importProduct(sourceProduct map[string]interface{}) {
 			}
 			productAttributes = append(productAttributes, attribute)
 		}
-		if dop["Свойство_Key"].(string) == "3a64bace-c8b8-11e9-94d8-08606ed6b998" {
+		// Redactor
+		if dop["Свойство_Key"].(string) == "d33bd5ed-38f1-11ea-8177-74d02b904d6f" {
 			var attribute = map[string]string{
 				"attribute":  "redactor",
 				"localeCode": "ru_RU",
@@ -401,7 +408,8 @@ func importProduct(sourceProduct map[string]interface{}) {
 			}
 			productAttributes = append(productAttributes, attribute)
 		}
-		if dop["Свойство_Key"].(string) == "2270db75-ad8e-11e6-907d-14dae924f847" {
+		// Perevodchik
+		if dop["Свойство_Key"].(string) == "d33bd5ef-38f1-11ea-8177-74d02b904d6f" {
 			var attribute = map[string]string{
 				"attribute":  "perevodchik",
 				"localeCode": "ru_RU",
@@ -409,7 +417,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 			}
 			productAttributes = append(productAttributes, attribute)
 		}
-		if dop["Свойство_Key"].(string) == "3a64bad2-c8b8-11e9-94d8-08606ed6b998" {
+		if dop["Свойство_Key"].(string) == "d33bd5f1-38f1-11ea-8177-74d02b904d6f" {
 			var attribute = map[string]string{
 				"attribute":  "pages",
 				"localeCode": "ru_RU",
@@ -417,7 +425,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 			}
 			productAttributes = append(productAttributes, attribute)
 		}
-		if dop["Свойство_Key"].(string) == "3a64bad6-c8b8-11e9-94d8-08606ed6b998" {
+		if dop["Свойство_Key"].(string) == "d33bd5f3-38f1-11ea-8177-74d02b904d6f" {
 			var attribute = map[string]string{
 				"attribute":  "cover_type",
 				"localeCode": "ru_RU",
@@ -425,7 +433,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 			}
 			productAttributes = append(productAttributes, attribute)
 		}
-		if dop["Свойство_Key"].(string) == "3a64badc-c8b8-11e9-94d8-08606ed6b998" {
+		if dop["Свойство_Key"].(string) == "d33bd5f9-38f1-11ea-8177-74d02b904d6f" {
 			var attribute = map[string]string{
 				"attribute":  "recommendation",
 				"localeCode": "ru_RU",
@@ -433,7 +441,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 			}
 			productAttributes = append(productAttributes, attribute)
 		}
-		if dop["Свойство_Key"].(string) == "3a64bad8-c8b8-11e9-94d8-08606ed6b998" {
+		if dop["Свойство_Key"].(string) == "d33bd5f5-38f1-11ea-8177-74d02b904d6f" {
 			dimensionsString := dop["Значение"].(string)
 			dimensions := strings.Split(dimensionsString, "х")
 			if len(dimensions) == 3 {
@@ -442,11 +450,11 @@ func importProduct(sourceProduct map[string]interface{}) {
 				depth = dimensions[2]
 			}
 		}
-		if dop["Свойство_Key"].(string) == "3a64bada-c8b8-11e9-94d8-08606ed6b998" {
+		if dop["Свойство_Key"].(string) == "d33bd5f7-38f1-11ea-8177-74d02b904d6f" {
 			weight = dop["Значение"].(string)
 		}
 		// set the discount if originalPrice is set
-		if dop["Свойство_Key"].(string) == "6ad734de-09dc-11ea-98c8-08606ed6b998" {
+		if dop["Свойство_Key"].(string) == "d33bd5fd-38f1-11ea-8177-74d02b904d6f" {
 			originalPrice, _ := strconv.ParseFloat(dop["Значение"].(string), 64)
 			if originalPrice > 0 {
 				productTaxons = append(productTaxons, "6ad73508-09dc-11ea-98c8-08606ed6b998")
@@ -538,7 +546,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 
 			for _, dopRaw := range dops {
 				dop := dopRaw.(map[string]interface{})
-				if dop["Свойство_Key"].(string) == "6ad734de-09dc-11ea-98c8-08606ed6b998" {
+				if dop["Свойство_Key"].(string) == "d33bd5fd-38f1-11ea-8177-74d02b904d6f" {
 					originalPrice, _ = strconv.ParseFloat(dop["Значение"].(string), 64)
 				}
 			}
