@@ -359,7 +359,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 				fmt.Println("Invalid author value", authorRefString)
 			}
 		}
-		if dop["Свойство_Key"].(string) == "1041e44a-b526-11ea-8190-74d02b904d6f" {
+		if dop["Свойство_Key"].(string) == "1041e448-b526-11ea-8190-74d02b904d6f" {
 			authorRefString := dop["Значение"].(string)
 			if val, ok := _values[authorRefString]; ok {
 				authorName := val.(string)
@@ -368,7 +368,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 				fmt.Println("Invalid author value", authorRefString)
 			}
 		}
-		if dop["Свойство_Key"].(string) == "d47747b8-50a6-11e9-be34-2c56dc4f4a15" {
+		if dop["Свойство_Key"].(string) == "1041e44a-b526-11ea-8190-74d02b904d6f" {
 			authorRefString := dop["Значение"].(string)
 			if val, ok := _values[authorRefString]; ok {
 				authorName := val.(string)
