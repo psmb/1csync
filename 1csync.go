@@ -118,7 +118,11 @@ func syncManufacturers() {
 				},
 			},
 		})
-		syliusRequest("PUT", "/api/v1/taxons/"+code, bytes.NewReader(body), "application/json")
+		resp := syliusRequest("PUT", "/api/v1/taxons/"+code, bytes.NewReader(body), "application/json")
+		if val, ok := resp["errors"]; ok {
+			color.Red("ERROR manufacturers!")
+			spew.Dump(val)
+		}
 
 		_newManufacturers = append(_newManufacturers, code)
 	}
@@ -160,7 +164,11 @@ func getAuthorTaxon(name string) string {
 		},
 	})
 	logVerbose("Creating author: " + code)
-	syliusRequest("PUT", "/api/v1/taxons/"+code, bytes.NewReader(body), "application/json")
+	resp := syliusRequest("PUT", "/api/v1/taxons/"+code, bytes.NewReader(body), "application/json")
+	if val, ok := resp["errors"]; ok {
+		color.Red("ERROR author!")
+		spew.Dump(val)
+	}
 	_importedAuthors[code] = true
 	return code
 }
@@ -188,7 +196,11 @@ func syncCategories() {
 					},
 				},
 			})
-			syliusRequest("PUT", "/api/v1/taxons/"+code, bytes.NewReader(body), "application/json")
+			resp := syliusRequest("PUT", "/api/v1/taxons/"+code, bytes.NewReader(body), "application/json")
+			if val, ok := resp["errors"]; ok {
+				color.Red("ERROR categories!")
+				spew.Dump(val)
+			}
 			validCategories[code] = true
 		}
 	}
