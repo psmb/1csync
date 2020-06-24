@@ -44,6 +44,8 @@ var _prices map[string]interface{}
 
 var _values map[string]interface{}
 
+var _manufacturers map[string]interface{}
+
 var _variants map[string][]map[string]interface{}
 
 func logVerbose(value interface{}) {
@@ -92,46 +94,16 @@ func fetchValues() {
 		_values[ref] = name
 	}
 }
-
-func syncManufacturers() {
-	_existingManufacturers := make([]string, 0)
-	existingManufacturers := syliusRequest("GET", "/api/v1/taxons/publishers", nil, "application/json")
-	for _, authorItem := range existingManufacturers["children"].([]interface{}) {
-		_existingManufacturers = append(_existingManufacturers, authorItem.(map[string]interface{})["code"].(string))
-	}
-
+func fetchManufacturers() {
 	url := "/odata/standard.odata/Catalog_%D0%9F%D1%80%D0%BE%D0%B8%D0%B7%D0%B2%D0%BE%D0%B4%D0%B8%D1%82%D0%B5%D0%BB%D0%B8/?$format=json"
 
-	_newManufacturers := make([]string, 0)
-	manufacterersR := odinCRequest("GET", url, nil)
-	for _, manufacturerRaw := range manufacterersR["value"].([]interface{}) {
-		manufacterer := manufacturerRaw.(map[string]interface{})
-		code := manufacterer["Ref_Key"].(string)
-		name := manufacterer["Description"].(string)
-		body, _ := json.Marshal(map[string]interface{}{
-			"code":   code,
-			"parent": "publishers",
-			"translations": map[string]interface{}{
-				"ru_RU": map[string]string{
-					"name": name,
-					"slug": "category/publishers/" + slugify.Slugify(name),
-				},
-			},
-		})
-		resp := syliusPutRequest("/api/v1/taxons/", code, bytes.NewReader(body), "application/json")
-		if val, ok := resp["errors"]; ok {
-			color.Red("ERROR manufacturers!")
-			spew.Dump(val)
-		}
-
-		_newManufacturers = append(_newManufacturers, code)
-	}
-
-	for _, slug := range _existingManufacturers {
-		if !containsString(_newManufacturers, slug) {
-			syliusRequest("DELETE", "/api/v1/taxons/"+slug, nil, "application/json")
-			logVerbose("Deleted author " + slug)
-		}
+	valuesR := odinCRequest("GET", url, nil)
+	for _, valuesR := range valuesR["value"].([]interface{}) {
+		valueItemRaw := valuesR.(map[string]interface{})
+		valueItem := valueItemRaw
+		ref := valueItem["Ref_Key"].(string)
+		name := valueItem["Description"].(string)
+		_manufacturers[ref] = name
 	}
 }
 
@@ -171,6 +143,51 @@ func getAuthorTaxon(name string) string {
 	}
 	_importedAuthors[code] = true
 	return code
+}
+
+var _importedManufacturers map[string]bool
+
+func pruneManufacturers() {
+	existingManufacturers := syliusRequest("GET", "/api/v1/taxons/publishers", nil, "application/json")
+	for _, manufacturerItem := range existingManufacturers["children"].([]interface{}) {
+		slug := manufacturerItem.(map[string]interface{})["code"].(string)
+		if !_importedManufacturers[slug] {
+			syliusRequest("DELETE", "/api/v1/taxons/"+slug, nil, "application/json")
+			logVerbose("Deleted manufacturer " + slug)
+		}
+	}
+}
+
+func getManufacturerTaxon(ref string) string {
+	if val, ok := _manufacturers[ref]; ok {
+		name := val.(string)
+		code := slugify.Slugify(name)
+
+		if _importedManufacturers[ref] {
+			return code
+		}
+
+		body, _ := json.Marshal(map[string]interface{}{
+			"code":   code,
+			"parent": "publishers",
+			"translations": map[string]interface{}{
+				"ru_RU": map[string]string{
+					"name": name,
+					"slug": "category/publishers/" + code,
+				},
+			},
+		})
+		logVerbose("Creating publisher: " + code)
+		resp := syliusPutRequest("/api/v1/taxons/", code, bytes.NewReader(body), "application/json")
+		if val, ok := resp["errors"]; ok {
+			color.Red("ERROR publisher!")
+			spew.Dump(val)
+		}
+		_importedManufacturers[code] = true
+		return code
+	}
+	fmt.Println("Invalid manufacturer ref", ref)
+	panic("Invalid manufacturer ref")
 }
 
 var validCategories map[string]bool
@@ -249,14 +266,15 @@ func initApp() {
 
 	_importedAuthors = make(map[string]bool)
 	_values = make(map[string]interface{})
+	_manufacturers = make(map[string]interface{})
 	_prices = make(map[string]interface{})
 	_variants = make(map[string][]map[string]interface{})
 
 	fetchSyliusToken()
+	syncCategories()
 	fetchValues()
 	syncPrices()
-	syncManufacturers()
-	syncCategories()
+	fetchManufacturers()
 }
 
 func syliusRequest(requestType string, url string, body io.Reader, contentType string) map[string]interface{} {
@@ -352,7 +370,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 	depth := ""
 	manufacturerKey := sourceProduct["Производитель_Key"].(string)
 	if len(manufacturerKey) > 0 && manufacturerKey != "00000000-0000-0000-0000-000000000000" {
-		productTaxons = append(productTaxons, sourceProduct["Производитель_Key"].(string))
+		productTaxons = append(productTaxons, getManufacturerTaxon(sourceProduct["Производитель_Key"].(string)))
 	}
 	dops := sourceProduct["ДополнительныеРеквизиты"].([]interface{})
 
@@ -704,6 +722,7 @@ func main() {
 	}
 
 	pruneAuthors()
+	pruneManufacturers()
 	fmt.Println("Done!")
 }
 
