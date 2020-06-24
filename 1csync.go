@@ -265,6 +265,7 @@ func initApp() {
 	}
 
 	_importedAuthors = make(map[string]bool)
+	_importedManufacturers = make(map[string]bool)
 	_values = make(map[string]interface{})
 	_manufacturers = make(map[string]interface{})
 	_prices = make(map[string]interface{})
