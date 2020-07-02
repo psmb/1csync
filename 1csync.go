@@ -573,12 +573,17 @@ func importProduct(sourceProduct map[string]interface{}) {
 			}
 
 			var originalPrice float64
+			hidden := false
 			dops := variant["ДополнительныеРеквизиты"].([]interface{})
 
 			for _, dopRaw := range dops {
 				dop := dopRaw.(map[string]interface{})
 				if dop["Свойство_Key"].(string) == "d33bd5fd-38f1-11ea-8177-74d02b904d6f" {
 					originalPrice, _ = strconv.ParseFloat(dop["Значение"].(string), 64)
+				}
+				if dop["Свойство_Key"].(string) == "b3ac0624-bc51-11ea-8190-74d02b904d6f" {
+					hiddenValue, _ := dop["Значение"].(bool)
+					hidden = hiddenValue
 				}
 			}
 
@@ -597,6 +602,10 @@ func importProduct(sourceProduct map[string]interface{}) {
 							"price": priceItem.(map[string]interface{})["Цена"].(float64),
 						},
 					},
+				}
+				if hidden {
+					variantObject["tracked"] = true
+					variantObject["onHand"] = 0
 				}
 				if variantType == "default" {
 					if weight != "" {
