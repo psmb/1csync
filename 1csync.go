@@ -582,8 +582,10 @@ func importProduct(sourceProduct map[string]interface{}) {
 					originalPrice, _ = strconv.ParseFloat(dop["Значение"].(string), 64)
 				}
 				if dop["Свойство_Key"].(string) == "b3ac0624-bc51-11ea-8190-74d02b904d6f" {
-					hiddenValue, _ := dop["Значение"].(bool)
-					hidden = hiddenValue
+					hiddenValue, _ := dop["Значение"].(string)
+					if hiddenValue == "true" {
+						hidden = true
+					}
 				}
 			}
 
