@@ -515,7 +515,7 @@ func importProduct(sourceProduct map[string]interface{}) {
 			"ru_RU": map[string]string{
 				"name":             sourceProduct["НаименованиеЗаголовок"].(string),
 				"shortDescription": sourceProduct["НаименованиеПодаголовок"].(string),
-				"description":      sourceProduct["Описание"].(string),
+				"description":      sourceProduct["Описание_Сайт"].(string),
 				"slug":             slug,
 			},
 		},
