@@ -36,6 +36,10 @@ var variantTypes = map[string]interface{}{
 		"shippingRequired": false,
 		"title":            "аудио книга",
 	},
+	"video": map[string]interface{}{
+		"shippingRequired": false,
+		"title":            "аудио книга",
+	},
 }
 
 var _syliusToken string
@@ -528,6 +532,12 @@ func importProduct(sourceProduct map[string]interface{}) {
 			variantSlug := variant["Артикул"].(string)
 			if variantSlug == slug+"_ebook" {
 				productTaxons = append(productTaxons, "ebooks")
+			}
+			if variantSlug == slug+"_audio" {
+				productTaxons = append(productTaxons, "audio")
+			}
+			if variantSlug == slug+"_video" {
+				productTaxons = append(productTaxons, "video")
 			}
 		}
 	}
