@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -564,8 +563,6 @@ func importProduct(sourceProduct map[string]interface{}) {
 			variants = append(variants, additionalVariants...)
 		}
 
-		imageIndex := 0
-		imagesData := map[string]interface{}{}
 		for _, variant := range variants {
 			variantSlug := variant["Артикул"].(string)
 			variantID := variant["Ref_Key"].(string)
@@ -647,51 +644,6 @@ func importProduct(sourceProduct map[string]interface{}) {
 				color.Yellow("Price not available, deleted variant")
 			}
 
-			logVerbose("Get images")
-			imagesRaw := odinCRequest("GET", "/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0%D0%9F%D1%80%D0%B8%D1%81%D0%BE%D0%B5%D0%B4%D0%B8%D0%BD%D0%B5%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D1%8B/?$format=json&%24filter=%D0%92%D0%BB%D0%B0%D0%B4%D0%B5%D0%BB%D0%B5%D1%86%D0%A4%D0%B0%D0%B9%D0%BB%D0%B0_Key%20eq%20guid%27"+variantID+"%27", nil)
-			images := imagesRaw["value"].([]interface{})
-			isFirst := true
-
-			for _, imageRaw := range images {
-				index := strconv.Itoa(imageIndex)
-				imageIndex = imageIndex + 1
-				imageRaw := imageRaw.(map[string]interface{})
-				imageID := imageRaw["Ref_Key"].(string)
-				ext := imageRaw["Расширение"].(string)
-				title := imageRaw["Description"].(string)
-				description := imageRaw["Описание"].(string)
-				isPaid := description == "$"
-				logVerbose("- Get image data")
-				imageDataRaw := odinCRequest("GET", "/odata/standard.odata/InformationRegister_%D0%94%D0%B2%D0%BE%D0%B8%D1%87%D0%BD%D1%8B%D0%B5%D0%94%D0%B0%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2(%D0%A4%D0%B0%D0%B9%D0%BB='"+imageID+"',%20%D0%A4%D0%B0%D0%B9%D0%BB_Type='StandardODATA.Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0%D0%9F%D1%80%D0%B8%D1%81%D0%BE%D0%B5%D0%B4%D0%B8%D0%BD%D0%B5%D0%BD%D0%BD%D1%8B%D0%B5%D0%A4%D0%B0%D0%B9%D0%BB%D1%8B')/?$format=json", nil)
-				base64image := imageDataRaw["ДвоичныеДанныеФайла_Base64Data"].(string)
-				base64imageFixed := strings.ReplaceAll(base64image, "\r\n", "")
-				imageData, _ := base64.StdEncoding.DecodeString(base64imageFixed)
-
-				var imageType string
-				if isPaid {
-					imageType = "paid"
-				} else if ext == "pdf" {
-					imageType = "pdf"
-				} else if isFirst {
-					isFirst = false
-					imageType = "main"
-				} else {
-					imageType = "default"
-				}
-
-				imagesData["images["+index+"][file]"] = imageData
-				imagesData["images["+index+"][type]"] = imageType
-				imagesData["images["+index+"][title]"] = title
-				if variantType != "default" {
-					imagesData["images["+index+"][productVariants]"] = variantSlug
-				}
-			}
-		}
-		body, contentType := makeMultipartBody(imagesData)
-		imagesResult := syliusRequest("POST", "/api/v1/products/"+slug+"?_method=PATCH", body, contentType)
-		if val, ok := imagesResult["errors"]; ok {
-			color.Red("ERROR images!")
-			spew.Dump(val)
 		}
 	}
 }
