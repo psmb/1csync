@@ -207,12 +207,14 @@ func syncCategories() {
 		name := category["Description"].(string)
 		if parentKey == "d33bd5fe-38f1-11ea-8177-74d02b904d6f" {
 			base := "category/books/"
+			parent := "books"
 			if name == "Мерч" {
 				base = "category/"
+				parent = "category"
 			}
 			body, _ := json.Marshal(map[string]interface{}{
 				"code":   code,
-				"parent": "books",
+				"parent": parent,
 				"translations": map[string]interface{}{
 					"ru_RU": map[string]string{
 						"name": name,
