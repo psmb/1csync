@@ -205,7 +205,7 @@ func syncCategories() {
 		code := category["Ref_Key"].(string)
 		parentKey := category["Parent_Key"].(string)
 		name := category["Description"].(string)
-		if parentKey == "d33bd5fe-38f1-11ea-8177-74d02b904d6f" {
+		if parentKey == "d33bd5fe-38f1-11ea-8177-74d02b904d6f" || name == "Мерч" {
 			base := "category/books/"
 			parent := "books"
 			if name == "Мерч" {
