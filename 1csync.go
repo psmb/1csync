@@ -481,6 +481,15 @@ func importProduct(sourceProduct map[string]interface{}) {
 			}
 			productAttributes = append(productAttributes, attribute)
 		}
+		// Год издания
+		if dop["Свойство_Key"].(string) == "cf731d69-3f2b-11e9-a6c8-14dae924f847" {
+			var attribute = map[string]string{
+				"attribute":  "god_izdaniya",
+				"localeCode": "ru_RU",
+				"value":      dop["Значение"].(string),
+			}
+			productAttributes = append(productAttributes, attribute)
+		}
 		if dop["Свойство_Key"].(string) == "d33bd5f5-38f1-11ea-8177-74d02b904d6f" {
 			dimensionsString := dop["Значение"].(string)
 			dimensions := strings.Split(dimensionsString, "х")
