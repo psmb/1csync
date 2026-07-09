@@ -351,9 +351,18 @@ func odinCRequest(requestType string, url string, body io.Reader) map[string]int
 	if errReadAll != nil {
 		panic(errReadAll)
 	}
+	if resp.StatusCode >= 400 {
+		color.Magenta("PANIC 1C!")
+		fmt.Println(req.Method, req.URL.String(), resp.Status)
+		fmt.Println(string(respBody))
+		panic("1C request failed")
+	}
 	var decodedBody map[string]interface{}
 	errJSON := json.Unmarshal(respBody, &decodedBody)
 	if errJSON != nil {
+		color.Magenta("PANIC 1C!")
+		fmt.Println(req.Method, req.URL.String(), resp.Status)
+		fmt.Println(string(respBody))
 		panic(errJSON)
 	}
 	return decodedBody
@@ -681,7 +690,12 @@ func main() {
 	products := make([]interface{}, 0)
 	productsAndVariantsRaw := odinCRequest("GET", "/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json&$filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20ne%20%27%27&$orderby=%D0%94%D0%B0%D1%82%D0%B0%D0%9F%D0%B5%D1%80%D0%B5%D0%B8%D0%B7%D0%B4%D0%B0%D0%BD%D0%B8%D1%8F%20asc", nil)
 	// productsAndVariantsRaw := odinCRequest("GET", "/odata/standard.odata/Catalog_%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B0/?$format=json&$filter=%D0%90%D1%80%D1%82%D0%B8%D0%BA%D1%83%D0%BB%20eq%20%27ethics-10%27", nil)
-	productsAndVariants := productsAndVariantsRaw["value"].([]interface{})
+	productsAndVariants, ok := productsAndVariantsRaw["value"].([]interface{})
+	if !ok {
+		color.Red("ERROR 1C products!")
+		spew.Dump(productsAndVariantsRaw)
+		panic("1C products response does not contain value array")
+	}
 	for _, productRaw := range productsAndVariants {
 		sourceProduct := productRaw.(map[string]interface{})
 		slug := sourceProduct["Артикул"].(string)
